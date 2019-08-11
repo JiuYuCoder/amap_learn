@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>屋托帮</title>
+    <link href="https://cdn.bootcss.com/twitter-bootstrap/3.0.1/css/bootstrap.min.css" rel="stylesheet">
+    <script type="text/javascript" src="https://webapi.amap.com/maps?v=1.4.15&key=2bdff8825ceee1d20c80eebd81e001fb"></script>
+    <script type="text/javascript" src="https://webapi.amap.com/maps?v=1.4.15&key=2bdff8825ceee1d20c80eebd81e001fb&plugin=AMap.PlaceSearch"></script>
+    <script type="text/javascript" src="https://cache.amap.com/lbs/static/PlaceSearchRender.js"></script>
+    <script type="text/javascript" src="https://cache.amap.com/lbs/static/addToolbar.js"></script>
+    <link rel="stylesheet" href="https://cache.amap.com/lbs/static/main1119.css"/>
+    <style type="text/css">
+        html{
+            height: 100%;
+        }
+        body{
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+        }
+        #container{
+            width: 100%;
+            height: 100%;
+        }
+
+        #top_menu{
+            width: 100%;
+            height: 70px;
+            background: white;
+            float: left;
+            display: flex;
+            align-items: center;
+        }
+
+        #community_name{
+            height: 100%;
+            width: 60%;
+            float: left;
+            margin-left: 10px;
+        }
+
+        #menu{
+            height:100%;
+            width: 30%;
+            float: right;
+        }
+
+        #menu ul{
+            margin-left: 60px;
+            list-style: none;
+        }
+
+        #menu ul li{
+            float: left;
+            left: 80%;
+            margin-left: 30px;
+            list-style: none;
+            margin-top: 25px;
+            font-size: 13px;
+        }
+
+        #menu ul li a{
+            color: black;
+            text-decoration: transparent;
+            font-weight: bold;
+        }
+
+        #menu ul li a:hover{
+            color: #184f9e;
+            text-decoration: transparent;
+            font-weight: bold;
+        }
+
+        #map_operate{
+            width: 400px;
+            height: 500px;
+            background: white;
+            position: absolute;
+            right: 20px;
+            top: 100px;
+            box-shadow: #888888 2px 2px 4px;
+        }
+
+        #map_display{
+            width: 100%;
+            height: 100%;
+        }
+
+        #poi_type_menu{
+            list-style: none;
+            display: block;
+            width: 100%;
+            height: 45px;
+            border-bottom: solid 1px #cccccc;
+            padding: 0px;
+        }
+
+        #poi_type_menu li{
+            float: left;
+            list-style: none;
+            font-size: 16px;
+            width: 60px;
+            height: 45px;
+            margin-left: 0px;
+        }
+
+        #poi_type_menu li a{
+            display: inline-block;
+            width: 60px;
+            color: rgb(51, 51, 51);
+            text-decoration: none;
+            line-height: 45px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body onload="init()">
+    <div id="top_menu">
+        <div id="community_name">
+            <h3>广州某小区及周边</h3>
+        </div>
+        <div id="menu">
+            <ul>
+                <li><a href="#">A</a></li>
+                <li><a href="#">B</a></li>
+                <li><a href="#">C</a></li>
+                <li><a href="#">D</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="container">
+    </div>
+
+    <div id="map_operate">
+        <ul id="poi_type_menu">
+            <li onclick="activeSelected(0)"><a href="#">交通</a></li>
+            <li><a href="#">购物</a></li>
+            <li><a href="#">生活</a></li>
+            <li><a href="#">娱乐</a></li>
+            <li><a href="#">医疗</a></li>
+            <li><a href="#">教育</a></li>
+        </ul>
+        <ul class="nav nav-pills">
+            <li onclick="searchPOI( '地铁')"><a href="#">地铁</a></li><!-- !!!!!这里触发POI搜索!!!!!! -->
+            <li onclick="searchPOI( '公交')"><a href="#">公交</a></li>
+            <li onclick="searchPOI( '停车场')"><a href="#">停车场</a></li>
+            <li onclick="searchPOI( '加油站')"><a href="#">加油站</a></li>
+        </ul>
+        <div id="map_display">
+
+        </div>
+    </div>
+    <script>
+        var map;
+        var centerPoint = [113.325509,23.117895];
+        var marker = [];
+        let poiTypeClickedIndex = -1;
+        let poiItemClickedIndex = -1;
+        let icon = new AMap.Icon('//a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-red.png');
+        function init(){
+            map = new AMap.Map('container', {
+                center: [113.368406,23.037499],
+                layers: [//使用多个图层
+                    new AMap.TileLayer(),
+                    new AMap.TileLayer.RoadNet()
+                ],
+                zooms: [4,18],//设置地图级别范围
+                zoom: 13,
+                mapStyle: 'amap://styles/macaron',
+            });
+
+            AMap.plugin('AMap.ToolBar',function(){//异步加载插件
+                var toolbar = new AMap.ToolBar();
+                map.addControl(toolbar);
+            });
+        }
+
+        function searchPOI(key){
+            if(marker.length !== 0){
+                map.remove(marker);
+            }
+
+            AMap.service(["AMap.PlaceSearch"], function() {
+                //构造地点查询类
+                var placeSearch = new AMap.PlaceSearch({
+                    type: key, // 兴趣点类别
+                    pageSize: 5, // 单页显示结果条数
+                    pageIndex: 1, // 页码
+                    city: "020", // 兴趣点城市
+                    citylimit: true,  //是否强制限制在设置的城市内搜索
+                    map: map, // 展现结果的地图实例
+                    panel: "panel", // 结果列表将在此容器中进行展示。
+                    autoFitView: true // 是否自动调整地图视野使绘制的 Marker点都处于视口的可见范围
+                });
+
+                /** ！！！！第二次搜索时下面这行语句报错！！！！*/
+                placeSearch.searchNearBy('', centerPoint, 2000, function (status, result) {
+                    var pois = result.poiList.pois;
+                    displayResult(pois);
+                    marker = [];
+                    for (let i = 0; i < pois.length; i++) {
+                        var poi = pois[i];
+                        marker[i] = new AMap.Marker({
+                            position: poi.location,   // 经纬度对象，也可以是经纬度构成的一维数组[116.39, 39.9]
+                            title: poi.name,
+                            // anchor: 'bottom-center'
+                        });
+                        // 将创建的点标记添加到已有的地图实例：
+                        map.add(marker[i]);
+                    }
+                    map.setFitView();
+                });
+            });
+        }
+
+        //展示POI
+        function displayResult(pois) {
+            console.log(pois)
+            let display = document.getElementById('map_display');
+            //动态生成展示元素
+            for (let i = 0; i < pois.length; i++) {
+                let poi = pois[i];
+                let name = poi.name;
+                let address = poi.address;
+                let distance = poi.distance + '米';
+                let nameDiv = document.createElement('div');
+                let addressDiv = document.createElement('div');
+                let leftContainer = document.createElement('div');
+
+                let distanceDiv = document.createElement('div');
+                let iconImg = document.createElement('img');
+                let rightContainer = document.createElement('div')
+
+                let container = document.createElement('div');
+
+                nameDiv.innerText = name;
+                nameDiv.style.fontWeight = 'bold';
+                nameDiv.style.fontSize = '15px';
+                addressDiv.innerText = address;
+
+                leftContainer.style.width = '60%';
+                leftContainer.style.cssFloat = 'left';
+                leftContainer.style.lineHeight = '32px';
+
+                iconImg.src = 'static/img/navigation.png';
+                iconImg.style.width = '20px';
+                iconImg.style.height = '20px';
+                iconImg.style.cssFloat = 'left';
+                iconImg.style.marginTop = '22px';
+
+                distanceDiv.innerText = distance;
+                distanceDiv.style.cssFloat = 'left';
+                distanceDiv.style.lineHeight = '64px';
+                distanceDiv.style.marginLeft = '10px';
+                distanceDiv.style.fontWeight = 'bold';
+
+                rightContainer.style.cssFloat = 'left';
+                rightContainer.style.width = '40%';
+
+                leftContainer.appendChild(nameDiv);
+                leftContainer.appendChild(addressDiv);
+                rightContainer.appendChild(iconImg);
+                rightContainer.appendChild(distanceDiv);
+
+                container.style.borderBottom = 'solid 1px #cccccc';
+                container.style.height = '64px';
+                container.style.marginLeft = '10px';
+                container.style.marginRight = '10px';
+
+                container.appendChild(leftContainer);
+                container.appendChild(rightContainer);
+
+                container.onmouseover = function(){
+                    container.style.background = '#dadada'
+                };
+
+                container.onmouseout = function(){
+                    container.style.background = '#ffffff'
+                };
+
+                container.onclick = function(){
+                    if(poiItemClickedIndex !== -1) {
+                        let map_display = document.getElementById('map_display');
+                        map_display.children[poiItemClickedIndex].children[1].children[0].src = 'static/img/navigation.png';
+                        map_display.children[poiItemClickedIndex].style.borderBottom = 'solid 1px #cccccc';
+                        map_display.children[poiItemClickedIndex].style.color = 'rgb(51, 51, 51)';
+                        marker[poiItemClickedIndex].setIcon();
+                    }
+                    iconImg.src = 'static/img/navigation_active.png';
+                    container.style.borderBottom = 'solid 2px #1296db';
+                    container.style.color = '#1296db';
+                    marker[i].setIcon(icon);
+                    poiItemClickedIndex = i;
+                };
+                display.appendChild(container);
+            }
+        }
+
+        //修改样式
+        function activeSelected(index) {
+            let typeMenu = document.getElementById('poi_type_menu');
+            if(poiTypeClickedIndex !== -1){
+
+            }
+            let li = typeMenu.children[index];
+            li.style.borderTop = 'solid 2px #1296db';
+            li.children[0].style.color = '#1296db';
+            poiTypeClickedIndex = index;
+        }
+    </script>
+</body>
+</html>
